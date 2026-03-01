@@ -39,3 +39,15 @@
 
 # debug information files
 *.dwo
+
+# platformio
+.pio
+
+# vscode
+.vscode
+
+# MacOS
+.DS_Store
+
+# secrets
+secrets.h
