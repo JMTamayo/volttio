@@ -137,14 +137,13 @@ void setup() {
   mqttMessageQueue =
       xQueueCreate(MQTT_MESSAGE_QUEUE_SIZE, sizeof(server::MqttMessage *));
 
-  xTaskCreate(syncTimeTask, SYNC_TIME_TASK_NAME, SYNC_TIME_TASK_STACK_SIZE,
-              nullptr, SYNC_TIME_TASK_PRIORITY, &syncTimeTaskHandle);
+  xTaskCreate(syncTimeTask, "syncTimeTask", SYNC_TIME_TASK_STACK_SIZE, nullptr,
+              SYNC_TIME_TASK_PRIORITY, &syncTimeTaskHandle);
 
-  xTaskCreate(deviceStatsTask, DEVICE_STATS_TASK_NAME,
-              DEVICE_STATS_TASK_STACK_SIZE, nullptr, DEVICE_STATS_TASK_PRIORITY,
-              &deviceStatsTaskHandle);
+  xTaskCreate(deviceStatsTask, "deviceStatsTask", DEVICE_STATS_TASK_STACK_SIZE,
+              nullptr, DEVICE_STATS_TASK_PRIORITY, &deviceStatsTaskHandle);
 
-  xTaskCreate(serverTask, SERVER_TASK_NAME, SERVER_TASK_STACK_SIZE, nullptr,
+  xTaskCreate(serverTask, "serverTask", SERVER_TASK_STACK_SIZE, nullptr,
               SERVER_TASK_PRIORITY, &serverTaskHandle);
 }
 
