@@ -2,11 +2,11 @@
 
 #include <cstdint>
 
-namespace server {
+namespace domain {
 
 class Fibonacci {
 public:
   static uint32_t get(const uint32_t n);
 };
 
-} // namespace server
+} // namespace domain

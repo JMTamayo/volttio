@@ -4,30 +4,56 @@
 
 namespace server {
 
-const char *WifiService::getSsid() const { return _ssid; }
+const char *WifiService::getSsidKey() const { return _ssidKey; }
 
-const char *WifiService::getPass() const { return _pass; }
+const char *WifiService::getPasswordKey() const { return _passwordKey; }
 
-WifiService::WifiService(const char *ssid, const char *pass)
-    : _ssid(ssid), _pass(pass) {}
+domain::FlashMemory *WifiService::getFlashMemory() const {
+  return _flashMemory;
+}
+
+WifiService::WifiService(const char *ssidKey, const char *passwordKey)
+    : _ssidKey(ssidKey), _passwordKey(passwordKey),
+      _flashMemory(new domain::FlashMemory(domain::FLASH_NAMESPACE_WIFI)) {}
+
+WifiService::~WifiService() { delete _flashMemory; }
+
+void WifiService::updateSsid(const char *ssid) {
+  this->getFlashMemory()->saveString(this->getSsidKey(), ssid);
+}
+
+void WifiService::updatePassword(const char *password) {
+  this->getFlashMemory()->saveString(this->getPasswordKey(), password);
+}
+
+bool WifiService::credentialsStored() {
+  String ssid = this->getFlashMemory()->readString(this->getSsidKey());
+  return !ssid.isEmpty();
+}
 
 bool WifiService::connect(const uint8_t maxRetries) {
+  String ssid = this->getFlashMemory()->readString(this->getSsidKey());
+  String pass = this->getFlashMemory()->readString(this->getPasswordKey());
+
   WiFi.mode(WIFI_STA);
-  WiFi.setTxPower(WIFI_POWER_8_5dBm);
-  WiFi.begin(this->getSsid(), this->getPass());
+  WiFi.begin(ssid, pass);
 
   uint8_t retries = 0;
 
   while (!this->connected()) {
-    if (retries > maxRetries)
+    if (retries > maxRetries) {
+      Serial.println("[WiFi] Connection failed, max retries reached");
       return false;
+    }
 
-    uint32_t delayMs = server::Fibonacci::get(retries) * 100;
+    uint32_t delayMs = domain::Fibonacci::get(retries) * 1000;
     vTaskDelay(pdMS_TO_TICKS(delayMs));
 
     retries++;
   }
 
+  Serial.printf("[WiFi] Connected, IP: %s\n",
+                WiFi.localIP().toString().c_str());
   return true;
 }
 

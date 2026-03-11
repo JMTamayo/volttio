@@ -4,8 +4,9 @@
 #include <PubSubClient.h>
 #include <cstdint>
 
+#include "connection.h"
 #include "fibonacci.h"
-#include "server.h"
+#include "flash_memory.h"
 
 namespace server {
 
@@ -33,12 +34,13 @@ public:
   const bool getRetained() const;
 };
 
-class MqttService : public server::IConnectionHandler {
+class MqttService : public domain::IConnectionHandler {
 private:
-  const char *_user;
-  const char *_password;
-  const char *_domain;
-  const uint16_t _port;
+  const char *_userKey;
+  const char *_passwordKey;
+  const char *_domainKey;
+  const char *_portKey;
+  domain::FlashMemory *_flashMemory;
 
   const char *_projectName;
   const char *_clientId;
@@ -46,13 +48,15 @@ private:
 
   PubSubClient &_client;
 
-  const char *getUser() const;
+  const char *getUserKey() const;
 
-  const char *getPassword() const;
+  const char *getPasswordKey() const;
 
-  const char *getDomain() const;
+  const char *getDomainKey() const;
 
-  const uint16_t getPort() const;
+  const char *getPortKey() const;
+
+  domain::FlashMemory *getFlashMemory() const;
 
   const char *getProjectName() const;
 
@@ -68,17 +72,30 @@ private:
 
 public:
   MqttService(PubSubClient &client, const char *projectName,
-              const char *clientId, const char *user, const char *password,
-              const char *domain, const uint16_t port);
+              const char *clientId,
+              const char *userKey = domain::FLASH_KEY_MQTT_USER,
+              const char *passwordKey = domain::FLASH_KEY_MQTT_PASSWORD,
+              const char *domainKey = domain::FLASH_KEY_MQTT_DOMAIN,
+              const char *portKey = domain::FLASH_KEY_MQTT_PORT);
 
-  ~MqttService() = default;
+  ~MqttService() override;
+
+  void updateUser(const char *user);
+
+  void updatePassword(const char *password);
+
+  void updateDomain(const char *domain);
+
+  void updatePort(uint16_t port);
+
+  bool credentialsStored();
 
   bool publish(MqttMessage *message);
 
   void loop();
 
   bool
-  connect(uint8_t maxRetries = server::DEFAULT_CONNECTION_MAX_RETRIES) override;
+  connect(uint8_t maxRetries = domain::DEFAULT_CONNECTION_MAX_RETRIES) override;
 
   void disconnect() override;
 

@@ -1,6 +1,6 @@
 #include "fibonacci.h"
 
-namespace server {
+namespace domain {
 
 uint32_t Fibonacci::get(const uint32_t n) {
   if (n <= 1)
@@ -18,4 +18,4 @@ uint32_t Fibonacci::get(const uint32_t n) {
   return curr;
 }
 
-} // namespace server
+} // namespace domain
