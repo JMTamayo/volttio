@@ -9,6 +9,8 @@
 
 #include "led.h"
 
+#include "ble.h"
+
 #include "mqtt.h"
 #include "server.h"
 #include "wifi_.h"
@@ -25,9 +27,12 @@ server::WifiService *wifi;
 server::MqttService *mqtt;
 server::ServerStatus serverStatus;
 
+ble::BleService *bleService;
+
 TaskHandle_t syncTimeTaskHandle;
 TaskHandle_t deviceStatsTaskHandle;
 TaskHandle_t serverTaskHandle;
+TaskHandle_t bleTaskHandle;
 
 QueueHandle_t mqttMessageQueue;
 
@@ -71,6 +76,9 @@ void serverTask(void *pvParameters) {
   for (;;) {
     switch (serverStatus) {
     case server::ServerStatus::SERVER_STATUS_CONNECT_TO_WIFI:
+      if (!wifi->credentialsStored())
+        break;
+
       if (wifi->connect())
         serverStatus = server::ServerStatus::SERVER_STATUS_CONNECT_TO_MQTT;
 
@@ -78,12 +86,17 @@ void serverTask(void *pvParameters) {
 
     case server::ServerStatus::SERVER_STATUS_CONNECT_TO_MQTT:
       if (!wifi->connected()) {
+        Serial.println("[Server] WiFi lost, reconnecting");
         serverStatus = server::ServerStatus::SERVER_STATUS_CONNECT_TO_WIFI;
+
+      } else if (!mqtt->credentialsStored()) {
+        break;
 
       } else if (!mqtt->connect()) {
         serverStatus = server::ServerStatus::SERVER_STATUS_CONNECT_TO_MQTT;
 
       } else {
+        Serial.println("[Server] Server available");
         serverStatus = server::ServerStatus::SERVER_STATUS_AVAILABLE;
       }
 
@@ -91,6 +104,7 @@ void serverTask(void *pvParameters) {
 
     case server::ServerStatus::SERVER_STATUS_AVAILABLE:
       if (!mqtt->connected()) {
+        Serial.println("[Server] MQTT lost, reconnecting");
         serverStatus = server::ServerStatus::SERVER_STATUS_CONNECT_TO_MQTT;
         builtinLed->LightUp(!false);
 
@@ -113,8 +127,18 @@ void serverTask(void *pvParameters) {
   }
 }
 
+void bleTask(void *pvParameters) {
+  for (;;) {
+    if (!bleService->started())
+      bleService->start();
+
+    vTaskDelay(pdMS_TO_TICKS(BLE_TASK_DELAY_MS));
+  }
+}
+
 void setup() {
   Serial.begin(115200);
+  Serial.println("[Setup] Initializing volttio");
 
   sysClock = new board::Clock(NTP_SERVER, LOCAL_TIMEZONE_OFFSET_SEC,
                               LOCAL_DAYLIGHT_OFFSET_SEC);
@@ -127,12 +151,12 @@ void setup() {
   mqttClient = new PubSubClient(espClient);
   mqttClient->setBufferSize(MQTT_MAX_PAYLOAD_SIZE);
 
-  wifi = new server::WifiService(WIFI_SSID, WIFI_PASSWORD);
-  mqtt =
-      new server::MqttService(*mqttClient, PROJECT_NAME, DEVICE_ID, MQTT_USER,
-                              MQTT_PASSWORD, MQTT_BROKER, MQTT_PORT);
+  wifi = new server::WifiService();
+  mqtt = new server::MqttService(*mqttClient, PROJECT_NAME, DEVICE_ID);
 
   serverStatus = server::ServerStatus::SERVER_STATUS_CONNECT_TO_WIFI;
+
+  bleService = new ble::BleService(PROJECT_NAME, DEVICE_ID);
 
   mqttMessageQueue =
       xQueueCreate(MQTT_MESSAGE_QUEUE_SIZE, sizeof(server::MqttMessage *));
@@ -145,6 +169,11 @@ void setup() {
 
   xTaskCreate(serverTask, "serverTask", SERVER_TASK_STACK_SIZE, nullptr,
               SERVER_TASK_PRIORITY, &serverTaskHandle);
+
+  xTaskCreate(bleTask, "bleTask", BLE_TASK_STACK_SIZE, nullptr,
+              BLE_TASK_PRIORITY, &bleTaskHandle);
+
+  Serial.println("[Setup] All tasks created");
 }
 
 void loop() {}
