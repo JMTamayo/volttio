@@ -2,27 +2,38 @@
 
 #include <WiFi.h>
 
+#include "connection.h"
 #include "fibonacci.h"
-#include "server.h"
+#include "flash_memory.h"
 
 namespace server {
 
-class WifiService : public server::IConnectionHandler {
+class WifiService : public domain::IConnectionHandler {
 private:
-  const char *_ssid;
-  const char *_pass;
+  const char *_ssidKey;
+  const char *_passwordKey;
+  domain::FlashMemory *_flashMemory;
 
-  const char *getSsid() const;
+  const char *getSsidKey() const;
 
-  const char *getPass() const;
+  const char *getPasswordKey() const;
+
+  domain::FlashMemory *getFlashMemory() const;
 
 public:
-  WifiService(const char *ssid, const char *pass);
+  WifiService(const char *ssidKey = domain::FLASH_KEY_WIFI_SSID,
+              const char *passwordKey = domain::FLASH_KEY_WIFI_PASSWORD);
 
-  ~WifiService() = default;
+  ~WifiService() override;
+
+  void updateSsid(const char *ssid);
+
+  void updatePassword(const char *password);
+
+  bool credentialsStored();
 
   bool connect(const uint8_t maxRetries =
-                   server::DEFAULT_CONNECTION_MAX_RETRIES) override;
+                   domain::DEFAULT_CONNECTION_MAX_RETRIES) override;
 
   void disconnect() override;
 
