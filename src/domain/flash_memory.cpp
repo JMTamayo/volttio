@@ -18,13 +18,16 @@ const char *FLASH_KEY_MQTT_DOMAIN = "mqtt_domain";
 
 const char *FLASH_KEY_MQTT_PORT = "mqtt_port";
 
-const char *FlashMemory::getNamespace() const { return _namespace; }
+const char *FlashStorageBase::getNamespace() const { return _namespace; }
 
-Preferences &FlashMemory::getPreferences() { return _preferences; }
+Preferences &FlashStorageBase::getPreferences() { return _preferences; }
 
-FlashMemory::FlashMemory(const char *ns) : _namespace(ns), _preferences() {}
+FlashStorageBase::FlashStorageBase(const char *ns)
+    : _namespace(ns), _preferences() {}
 
-bool FlashMemory::saveString(const char *key, const char *value) {
+FlashWriter::FlashWriter(const char *ns) : FlashStorageBase(ns) {}
+
+bool FlashWriter::saveString(const char *key, const char *value) {
   if (!this->getPreferences().begin(this->getNamespace(), false))
     return false;
 
@@ -34,7 +37,19 @@ bool FlashMemory::saveString(const char *key, const char *value) {
   return true;
 }
 
-const String FlashMemory::readString(const char *key) {
+bool FlashWriter::saveUint16(const char *key, const uint16_t value) {
+  if (!this->getPreferences().begin(this->getNamespace(), false))
+    return false;
+
+  this->getPreferences().putUInt(key, value);
+  this->getPreferences().end();
+
+  return true;
+}
+
+FlashReader::FlashReader(const char *ns) : FlashStorageBase(ns) {}
+
+const String FlashReader::readString(const char *key) {
   String defaultValue = "";
 
   if (!this->getPreferences().begin(this->getNamespace(), true))
@@ -46,17 +61,7 @@ const String FlashMemory::readString(const char *key) {
   return value;
 }
 
-bool FlashMemory::saveUint16(const char *key, const uint16_t value) {
-  if (!this->getPreferences().begin(this->getNamespace(), false))
-    return false;
-
-  this->getPreferences().putUInt(key, value);
-  this->getPreferences().end();
-
-  return true;
-}
-
-uint16_t FlashMemory::readUint16(const char *key) {
+uint16_t FlashReader::readUint16(const char *key) {
   uint16_t defaultValue = 0;
 
   if (!this->getPreferences().begin(this->getNamespace(), true))

@@ -8,32 +8,24 @@ const char *WifiService::getSsidKey() const { return _ssidKey; }
 
 const char *WifiService::getPasswordKey() const { return _passwordKey; }
 
-domain::FlashMemory *WifiService::getFlashMemory() const {
-  return _flashMemory;
+domain::FlashReader *WifiService::getFlashReader() const {
+  return _flashReader;
 }
 
 WifiService::WifiService(const char *ssidKey, const char *passwordKey)
     : _ssidKey(ssidKey), _passwordKey(passwordKey),
-      _flashMemory(new domain::FlashMemory(domain::FLASH_NAMESPACE_WIFI)) {}
+      _flashReader(new domain::FlashReader(domain::FLASH_NAMESPACE_WIFI)) {}
 
-WifiService::~WifiService() { delete _flashMemory; }
-
-void WifiService::updateSsid(const char *ssid) {
-  this->getFlashMemory()->saveString(this->getSsidKey(), ssid);
-}
-
-void WifiService::updatePassword(const char *password) {
-  this->getFlashMemory()->saveString(this->getPasswordKey(), password);
-}
+WifiService::~WifiService() { delete _flashReader; }
 
 bool WifiService::credentialsStored() {
-  String ssid = this->getFlashMemory()->readString(this->getSsidKey());
+  String ssid = this->getFlashReader()->readString(this->getSsidKey());
   return !ssid.isEmpty();
 }
 
 bool WifiService::connect(const uint8_t maxRetries) {
-  String ssid = this->getFlashMemory()->readString(this->getSsidKey());
-  String pass = this->getFlashMemory()->readString(this->getPasswordKey());
+  String ssid = this->getFlashReader()->readString(this->getSsidKey());
+  String pass = this->getFlashReader()->readString(this->getPasswordKey());
 
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, pass);
@@ -56,8 +48,6 @@ bool WifiService::connect(const uint8_t maxRetries) {
                 WiFi.localIP().toString().c_str());
   return true;
 }
-
-void WifiService::disconnect() { WiFi.disconnect(); }
 
 bool WifiService::connected() { return WiFi.status() == WL_CONNECTED; }
 

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <Arduino.h>
-#include <PubSubClient.h>
+#include <AsyncMqttClient.h>
 #include <cstdint>
 
 #include "connection.h"
@@ -12,6 +12,8 @@ namespace server {
 
 extern const bool DEFAULT_MQTT_MESSAGE_RETAINED;
 
+extern const uint8_t DEFAULT_MQTT_MESSAGE_QOS;
+
 extern const char *DEFAULT_MQTT_TOPIC_SEPARATOR;
 
 class MqttMessage {
@@ -19,17 +21,21 @@ private:
   String _subject;
   String _payload;
 
+  const uint8_t _qos;
   const bool _retained;
 
 public:
   MqttMessage(const char *subject, const char *payload,
-              const bool retained = DEFAULT_MQTT_MESSAGE_RETAINED);
+              const bool retained = DEFAULT_MQTT_MESSAGE_RETAINED,
+              const uint8_t qos = DEFAULT_MQTT_MESSAGE_QOS);
 
   ~MqttMessage() = default;
 
   const char *getSubject() const;
 
   const String &getPayload() const;
+
+  const uint8_t getQos() const;
 
   const bool getRetained() const;
 };
@@ -40,13 +46,13 @@ private:
   const char *_passwordKey;
   const char *_domainKey;
   const char *_portKey;
-  domain::FlashMemory *_flashMemory;
+  domain::FlashReader *_flashReader;
 
   const char *_projectName;
   const char *_clientId;
   const char *_topicSeparator;
 
-  PubSubClient &_client;
+  AsyncMqttClient &_client;
 
   const char *getUserKey() const;
 
@@ -56,7 +62,7 @@ private:
 
   const char *getPortKey() const;
 
-  domain::FlashMemory *getFlashMemory() const;
+  domain::FlashReader *getFlashReader() const;
 
   const char *getProjectName() const;
 
@@ -68,10 +74,10 @@ private:
 
   const String getTopic(const char *subject) const;
 
-  PubSubClient &getClient();
+  AsyncMqttClient &getClient();
 
 public:
-  MqttService(PubSubClient &client, const char *projectName,
+  MqttService(AsyncMqttClient &client, const char *projectName,
               const char *clientId,
               const char *userKey = domain::FLASH_KEY_MQTT_USER,
               const char *passwordKey = domain::FLASH_KEY_MQTT_PASSWORD,
@@ -80,24 +86,12 @@ public:
 
   ~MqttService() override;
 
-  void updateUser(const char *user);
-
-  void updatePassword(const char *password);
-
-  void updateDomain(const char *domain);
-
-  void updatePort(uint16_t port);
-
   bool credentialsStored();
 
   bool publish(MqttMessage *message);
 
-  void loop();
-
   bool
   connect(uint8_t maxRetries = domain::DEFAULT_CONNECTION_MAX_RETRIES) override;
-
-  void disconnect() override;
 
   bool connected() override;
 };

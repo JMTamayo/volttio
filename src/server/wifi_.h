@@ -12,13 +12,13 @@ class WifiService : public domain::IConnectionHandler {
 private:
   const char *_ssidKey;
   const char *_passwordKey;
-  domain::FlashMemory *_flashMemory;
+  domain::FlashReader *_flashReader;
 
   const char *getSsidKey() const;
 
   const char *getPasswordKey() const;
 
-  domain::FlashMemory *getFlashMemory() const;
+  domain::FlashReader *getFlashReader() const;
 
 public:
   WifiService(const char *ssidKey = domain::FLASH_KEY_WIFI_SSID,
@@ -26,16 +26,10 @@ public:
 
   ~WifiService() override;
 
-  void updateSsid(const char *ssid);
-
-  void updatePassword(const char *password);
-
   bool credentialsStored();
 
   bool connect(const uint8_t maxRetries =
                    domain::DEFAULT_CONNECTION_MAX_RETRIES) override;
-
-  void disconnect() override;
 
   bool connected() override;
 };
