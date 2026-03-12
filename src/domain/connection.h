@@ -14,8 +14,6 @@ public:
   virtual bool
   connect(const uint8_t maxRetries = DEFAULT_CONNECTION_MAX_RETRIES) = 0;
 
-  virtual void disconnect() = 0;
-
   virtual bool connected() = 0;
 };
 
