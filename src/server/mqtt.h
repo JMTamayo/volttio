@@ -54,6 +54,12 @@ private:
 
   AsyncMqttClient &_client;
 
+  QueueHandle_t _subscriptionQueue;
+
+  void handleIncomingMessage(char *topic, char *payload,
+                             AsyncMqttClientMessageProperties properties,
+                             size_t len, size_t index, size_t total);
+
   const char *getUserKey() const;
 
   const char *getPasswordKey() const;
@@ -78,7 +84,7 @@ private:
 
 public:
   MqttService(AsyncMqttClient &client, const char *projectName,
-              const char *clientId,
+              const char *clientId, QueueHandle_t subscriptionQueue,
               const char *userKey = domain::FLASH_KEY_MQTT_USER,
               const char *passwordKey = domain::FLASH_KEY_MQTT_PASSWORD,
               const char *domainKey = domain::FLASH_KEY_MQTT_DOMAIN,
@@ -94,6 +100,10 @@ public:
   connect(uint8_t maxRetries = domain::DEFAULT_CONNECTION_MAX_RETRIES) override;
 
   bool connected() override;
+
+  bool subscribe(const char *topic, uint8_t qos = DEFAULT_MQTT_MESSAGE_QOS);
+
+  String getSubjectFromTopic(const char *fullTopic) const;
 };
 
 } // namespace server
