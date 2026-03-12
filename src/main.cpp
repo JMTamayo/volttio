@@ -1,6 +1,6 @@
 #include <Arduino.h>
 #include <AsyncMqttClient.h>
-#include <freertos/task.h>
+#include <cstring>
 
 #include "config.h"
 #include "secrets.h"
@@ -30,11 +30,14 @@ server::ServerStatus serverStatus;
 ble::BleService *bleService;
 
 TaskHandle_t syncTimeTaskHandle;
-TaskHandle_t deviceStatsTaskHandle;
 TaskHandle_t serverTaskHandle;
 TaskHandle_t bleTaskHandle;
 
-QueueHandle_t mqttMessageQueue;
+TaskHandle_t deviceStatsTaskHandle;
+TaskHandle_t controlTaskHandle;
+
+QueueHandle_t MqttPublishingEventQueue;
+QueueHandle_t MqttSubscriptionsEventQueue;
 
 void syncTimeTask(void *pvParameters) {
   for (;;) {
@@ -44,30 +47,6 @@ void syncTimeTask(void *pvParameters) {
 
     } else {
       vTaskDelay(pdMS_TO_TICKS(SYNC_TIME_TASK_RETRY_DELAY_MS));
-    }
-  }
-}
-
-void deviceStatsTask(void *pvParameters) {
-  String datetime;
-
-  for (;;) {
-    if (serverStatus == server::ServerStatus::SERVER_STATUS_AVAILABLE &&
-        sysClock->getCurrentTimeISO8601(&datetime)) {
-      String jsonStats = stats->getStats(datetime);
-
-      server::MqttMessage *message =
-          new server::MqttMessage(MQTT_SUBJECT_DEVICE_STATS, jsonStats.c_str(),
-                                  MQTT_SUBJECT_DEVICE_STATS_RETAINED);
-      if (xQueueSend(mqttMessageQueue, &message,
-                     pdMS_TO_TICKS(MQTT_MESSAGE_QUEUE_DELAY_MS)) != pdTRUE) {
-        delete message;
-      }
-
-      vTaskDelay(pdMS_TO_TICKS(DEVICE_STATS_TASK_DELAY_MS));
-
-    } else {
-      vTaskDelay(pdMS_TO_TICKS(DEVICE_STATS_TASK_RETRY_DELAY_MS));
     }
   }
 }
@@ -97,6 +76,10 @@ void serverTask(void *pvParameters) {
 
       } else {
         Serial.println("[Server] Server available");
+
+        mqtt->subscribe(MQTT_COMMAND_RESTART, 0);
+        mqtt->subscribe(MQTT_COMMAND_PING, 0);
+
         serverStatus = server::ServerStatus::SERVER_STATUS_AVAILABLE;
       }
 
@@ -112,7 +95,7 @@ void serverTask(void *pvParameters) {
         builtinLed->LightUp(true);
 
         server::MqttMessage *message;
-        while (xQueueReceive(mqttMessageQueue, &message, 0) == pdPASS) {
+        while (xQueueReceive(MqttPublishingEventQueue, &message, 0) == pdPASS) {
           mqtt->publish(message);
           delete message;
         }
@@ -134,9 +117,81 @@ void bleTask(void *pvParameters) {
   }
 }
 
+void deviceStatsTask(void *pvParameters) {
+  String datetime;
+
+  for (;;) {
+    if (serverStatus == server::ServerStatus::SERVER_STATUS_AVAILABLE &&
+        sysClock->getCurrentTimeISO8601(&datetime)) {
+      String jsonStats = stats->getStats(datetime);
+
+      server::MqttMessage *message =
+          new server::MqttMessage(MQTT_SUBJECT_DEVICE_STATS, jsonStats.c_str(),
+                                  MQTT_SUBJECT_DEVICE_STATS_RETAINED);
+      if (xQueueSend(MqttPublishingEventQueue, &message,
+                     pdMS_TO_TICKS(MQTT_PUBLISHING_EVENT_QUEUE_DELAY_MS)) !=
+          pdTRUE) {
+        delete message;
+      }
+
+      vTaskDelay(pdMS_TO_TICKS(DEVICE_STATS_TASK_DELAY_MS));
+
+    } else {
+      vTaskDelay(pdMS_TO_TICKS(DEVICE_STATS_TASK_RETRY_DELAY_MS));
+    }
+  }
+}
+
+void restartDevice() { ESP.restart(); }
+
+void ping() {
+  server::MqttMessage *message = new server::MqttMessage(
+      MQTT_SUBJECT_PING, nullptr, MQTT_SUBJECT_PING_RETAINED);
+  if (xQueueSend(MqttPublishingEventQueue, &message,
+                 pdMS_TO_TICKS(MQTT_PUBLISHING_EVENT_QUEUE_DELAY_MS)) != pdTRUE)
+    delete message;
+}
+
+void commandNotSupported(const char *command) {
+  String payload = String("Command not supported: ") + command;
+  server::MqttMessage *message = new server::MqttMessage(
+      MQTT_SUBJECT_ERROR, payload.c_str(), MQTT_SUBJECT_ERROR_RETAINED);
+  if (xQueueSend(MqttPublishingEventQueue, &message,
+                 pdMS_TO_TICKS(MQTT_PUBLISHING_EVENT_QUEUE_DELAY_MS)) != pdTRUE)
+    delete message;
+}
+
+void controlTask(void *pvParameters) {
+  for (;;) {
+    server::MqttMessage *message;
+    if (xQueueReceive(MqttSubscriptionsEventQueue, &message,
+                      pdMS_TO_TICKS(MQTT_SUBSCRIPTIONS_QUEUE_DELAY_MS)) ==
+        pdPASS) {
+      if (strcmp(message->getSubject(), MQTT_COMMAND_RESTART) == 0) {
+        restartDevice();
+
+      } else if (strcmp(message->getSubject(), MQTT_COMMAND_PING) == 0) {
+        ping();
+
+      } else {
+        commandNotSupported(message->getSubject());
+      }
+
+      delete message;
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(CONTROL_TASK_DELAY_MS));
+  }
+}
+
 void setup() {
   Serial.begin(115200);
   Serial.println("[Setup] Initializing volttio");
+
+  MqttPublishingEventQueue = xQueueCreate(MQTT_PUBLISHING_EVENT_QUEUE_SIZE,
+                                          sizeof(server::MqttMessage *));
+  MqttSubscriptionsEventQueue = xQueueCreate(MQTT_SUBSCRIPTIONS_QUEUE_SIZE,
+                                             sizeof(server::MqttMessage *));
 
   sysClock = new board::Clock(NTP_SERVER, LOCAL_TIMEZONE_OFFSET_SEC,
                               LOCAL_DAYLIGHT_OFFSET_SEC);
@@ -147,23 +202,17 @@ void setup() {
   builtinLed->LightUp(false);
 
   wifi = new server::WifiService();
-  mqtt = new server::MqttService(mqttClient, PROJECT_NAME, DEVICE_ID);
+
+  mqtt = new server::MqttService(mqttClient, PROJECT_NAME, DEVICE_ID,
+                                 MqttSubscriptionsEventQueue);
 
   serverStatus = server::ServerStatus::SERVER_STATUS_CONNECT_TO_WIFI;
 
   bleService = new ble::BleService(PROJECT_NAME, DEVICE_ID);
 
-  mqttMessageQueue =
-      xQueueCreate(MQTT_MESSAGE_QUEUE_SIZE, sizeof(server::MqttMessage *));
-
   xTaskCreatePinnedToCore(
       syncTimeTask, "syncTimeTask", SYNC_TIME_TASK_STACK_SIZE, nullptr,
       SYNC_TIME_TASK_PRIORITY, &syncTimeTaskHandle, SYNC_TIME_TASK_CORE);
-
-  xTaskCreatePinnedToCore(deviceStatsTask, "deviceStatsTask",
-                          DEVICE_STATS_TASK_STACK_SIZE, nullptr,
-                          DEVICE_STATS_TASK_PRIORITY, &deviceStatsTaskHandle,
-                          DEVICE_STATS_TASK_CORE);
 
   xTaskCreatePinnedToCore(serverTask, "serverTask", SERVER_TASK_STACK_SIZE,
                           nullptr, SERVER_TASK_PRIORITY, &serverTaskHandle,
@@ -171,6 +220,15 @@ void setup() {
 
   xTaskCreatePinnedToCore(bleTask, "bleTask", BLE_TASK_STACK_SIZE, nullptr,
                           BLE_TASK_PRIORITY, &bleTaskHandle, BLE_TASK_CORE);
+
+  xTaskCreatePinnedToCore(deviceStatsTask, "deviceStatsTask",
+                          DEVICE_STATS_TASK_STACK_SIZE, nullptr,
+                          DEVICE_STATS_TASK_PRIORITY, &deviceStatsTaskHandle,
+                          DEVICE_STATS_TASK_CORE);
+
+  xTaskCreatePinnedToCore(controlTask, "controlTask", CONTROL_TASK_STACK_SIZE,
+                          nullptr, CONTROL_TASK_PRIORITY, &controlTaskHandle,
+                          CONTROL_TASK_CORE);
 
   Serial.println("[Setup] All tasks created");
 }

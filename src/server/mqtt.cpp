@@ -53,14 +53,21 @@ const String MqttService::getTopic(const char *subject) const {
 AsyncMqttClient &MqttService::getClient() { return _client; }
 
 MqttService::MqttService(AsyncMqttClient &client, const char *projectName,
-                         const char *clientId, const char *userKey,
-                         const char *passwordKey, const char *domainKey,
-                         const char *portKey)
+                         const char *clientId, QueueHandle_t subscriptionQueue,
+                         const char *userKey, const char *passwordKey,
+                         const char *domainKey, const char *portKey)
     : _userKey(userKey), _passwordKey(passwordKey), _domainKey(domainKey),
       _portKey(portKey),
       _flashReader(new domain::FlashReader(domain::FLASH_NAMESPACE_MQTT)),
       _projectName(projectName), _clientId(clientId),
-      _topicSeparator(DEFAULT_MQTT_TOPIC_SEPARATOR), _client(client) {}
+      _topicSeparator(DEFAULT_MQTT_TOPIC_SEPARATOR), _client(client),
+      _subscriptionQueue(subscriptionQueue) {
+  _client.onMessage([this](char *topic, char *payload,
+                           AsyncMqttClientMessageProperties properties,
+                           size_t len, size_t index, size_t total) {
+    this->handleIncomingMessage(topic, payload, properties, len, index, total);
+  });
+}
 
 MqttService::~MqttService() { delete _flashReader; }
 
@@ -120,5 +127,65 @@ bool MqttService::connect(const uint8_t maxRetries) {
 }
 
 bool MqttService::connected() { return this->getClient().connected(); }
+
+bool MqttService::subscribe(const char *topic, uint8_t qos) {
+  if (topic == nullptr || topic[0] == '\0')
+    return false;
+  String fullTopic = this->getTopic(topic);
+  return this->getClient().subscribe(fullTopic.c_str(), qos) != 0;
+}
+
+String MqttService::getSubjectFromTopic(const char *fullTopic) const {
+  if (fullTopic == nullptr || fullTopic[0] == '\0')
+    return String("");
+
+  String topicStr(fullTopic);
+  topicStr.trim();
+
+  String base = this->getBaseTopic();
+  String subject;
+
+  if (topicStr.startsWith(base)) {
+    subject = topicStr.substring(base.length());
+
+  } else {
+    int lastSlash = topicStr.lastIndexOf('/');
+    if (lastSlash >= 0 && lastSlash < (int)topicStr.length() - 1)
+      subject = topicStr.substring(lastSlash + 1);
+    else
+      subject = topicStr;
+  }
+
+  subject.trim();
+
+  return subject;
+}
+
+void MqttService::handleIncomingMessage(
+    char *topic, char *payload, AsyncMqttClientMessageProperties properties,
+    size_t len, size_t index, size_t total) {
+  static String accPayload;
+  static String accTopic;
+
+  if (index == 0) {
+    accTopic = topic;
+    accPayload.reserve(total);
+    accPayload = "";
+  }
+
+  if (payload != nullptr && len > 0)
+    accPayload.concat(payload, len);
+
+  if (index + len != total)
+    return;
+
+  if (_subscriptionQueue == nullptr)
+    return;
+
+  String subject = this->getSubjectFromTopic(accTopic.c_str());
+  MqttMessage *msg = new MqttMessage(subject.c_str(), accPayload.c_str());
+  if (xQueueSend(_subscriptionQueue, &msg, pdMS_TO_TICKS(10)) != pdPASS)
+    delete msg;
+}
 
 } // namespace server
