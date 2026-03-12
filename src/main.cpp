@@ -31,7 +31,6 @@ ble::BleService *bleService;
 
 TaskHandle_t syncTimeTaskHandle;
 TaskHandle_t serverTaskHandle;
-TaskHandle_t bleTaskHandle;
 
 TaskHandle_t deviceStatsTaskHandle;
 TaskHandle_t controlTaskHandle;
@@ -108,15 +107,6 @@ void serverTask(void *pvParameters) {
   }
 }
 
-void bleTask(void *pvParameters) {
-  for (;;) {
-    if (!bleService->started())
-      bleService->start();
-
-    vTaskDelay(pdMS_TO_TICKS(BLE_TASK_DELAY_MS));
-  }
-}
-
 void deviceStatsTask(void *pvParameters) {
   String datetime;
 
@@ -185,7 +175,7 @@ void controlTask(void *pvParameters) {
 }
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(SERIAL_BAUD_RATE);
   Serial.println("[Setup] Initializing volttio");
 
   MqttPublishingEventQueue = xQueueCreate(MQTT_PUBLISHING_EVENT_QUEUE_SIZE,
@@ -209,6 +199,7 @@ void setup() {
   serverStatus = server::ServerStatus::SERVER_STATUS_CONNECT_TO_WIFI;
 
   bleService = new ble::BleService(PROJECT_NAME, DEVICE_ID);
+  bleService->start();
 
   xTaskCreatePinnedToCore(
       syncTimeTask, "syncTimeTask", SYNC_TIME_TASK_STACK_SIZE, nullptr,
@@ -217,9 +208,6 @@ void setup() {
   xTaskCreatePinnedToCore(serverTask, "serverTask", SERVER_TASK_STACK_SIZE,
                           nullptr, SERVER_TASK_PRIORITY, &serverTaskHandle,
                           SERVER_TASK_CORE);
-
-  xTaskCreatePinnedToCore(bleTask, "bleTask", BLE_TASK_STACK_SIZE, nullptr,
-                          BLE_TASK_PRIORITY, &bleTaskHandle, BLE_TASK_CORE);
 
   xTaskCreatePinnedToCore(deviceStatsTask, "deviceStatsTask",
                           DEVICE_STATS_TASK_STACK_SIZE, nullptr,
