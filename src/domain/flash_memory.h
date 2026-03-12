@@ -20,8 +20,8 @@ extern const char *FLASH_KEY_MQTT_DOMAIN;
 
 extern const char *FLASH_KEY_MQTT_PORT;
 
-class FlashMemory {
-private:
+class FlashStorageBase {
+protected:
   const char *_namespace;
   Preferences _preferences;
 
@@ -29,16 +29,30 @@ private:
 
   Preferences &getPreferences();
 
-public:
-  FlashMemory(const char *ns);
+  FlashStorageBase(const char *ns);
 
-  ~FlashMemory() = default;
+  virtual ~FlashStorageBase() = default;
+
+public:
+  FlashStorageBase(const FlashStorageBase &) = delete;
+
+  FlashStorageBase &operator=(const FlashStorageBase &) = delete;
+};
+
+class FlashWriter : public FlashStorageBase {
+public:
+  FlashWriter(const char *ns);
 
   bool saveString(const char *key, const char *value);
 
-  const String readString(const char *key);
-
   bool saveUint16(const char *key, const uint16_t value);
+};
+
+class FlashReader : public FlashStorageBase {
+public:
+  FlashReader(const char *ns);
+
+  const String readString(const char *key);
 
   uint16_t readUint16(const char *key);
 };

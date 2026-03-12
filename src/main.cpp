@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <AsyncMqttClient.h>
 #include <freertos/task.h>
 
 #include "config.h"
@@ -15,8 +16,7 @@
 #include "server.h"
 #include "wifi_.h"
 
-WiFiClient espClient;
-PubSubClient *mqttClient;
+AsyncMqttClient mqttClient;
 
 board::Clock *sysClock;
 board::Stats *stats;
@@ -106,12 +106,10 @@ void serverTask(void *pvParameters) {
       if (!mqtt->connected()) {
         Serial.println("[Server] MQTT lost, reconnecting");
         serverStatus = server::ServerStatus::SERVER_STATUS_CONNECT_TO_MQTT;
-        builtinLed->LightUp(!false);
+        builtinLed->LightUp(false);
 
       } else {
-        builtinLed->LightUp(!true);
-
-        mqtt->loop();
+        builtinLed->LightUp(true);
 
         server::MqttMessage *message;
         while (xQueueReceive(mqttMessageQueue, &message, 0) == pdPASS) {
@@ -146,13 +144,10 @@ void setup() {
   stats = new board::Stats();
 
   builtinLed = new peripherals::Led(BUILTIN_LED_PIN);
-  builtinLed->LightUp(!false);
-
-  mqttClient = new PubSubClient(espClient);
-  mqttClient->setBufferSize(MQTT_MAX_PAYLOAD_SIZE);
+  builtinLed->LightUp(false);
 
   wifi = new server::WifiService();
-  mqtt = new server::MqttService(*mqttClient, PROJECT_NAME, DEVICE_ID);
+  mqtt = new server::MqttService(mqttClient, PROJECT_NAME, DEVICE_ID);
 
   serverStatus = server::ServerStatus::SERVER_STATUS_CONNECT_TO_WIFI;
 
@@ -161,17 +156,21 @@ void setup() {
   mqttMessageQueue =
       xQueueCreate(MQTT_MESSAGE_QUEUE_SIZE, sizeof(server::MqttMessage *));
 
-  xTaskCreate(syncTimeTask, "syncTimeTask", SYNC_TIME_TASK_STACK_SIZE, nullptr,
-              SYNC_TIME_TASK_PRIORITY, &syncTimeTaskHandle);
+  xTaskCreatePinnedToCore(
+      syncTimeTask, "syncTimeTask", SYNC_TIME_TASK_STACK_SIZE, nullptr,
+      SYNC_TIME_TASK_PRIORITY, &syncTimeTaskHandle, SYNC_TIME_TASK_CORE);
 
-  xTaskCreate(deviceStatsTask, "deviceStatsTask", DEVICE_STATS_TASK_STACK_SIZE,
-              nullptr, DEVICE_STATS_TASK_PRIORITY, &deviceStatsTaskHandle);
+  xTaskCreatePinnedToCore(deviceStatsTask, "deviceStatsTask",
+                          DEVICE_STATS_TASK_STACK_SIZE, nullptr,
+                          DEVICE_STATS_TASK_PRIORITY, &deviceStatsTaskHandle,
+                          DEVICE_STATS_TASK_CORE);
 
-  xTaskCreate(serverTask, "serverTask", SERVER_TASK_STACK_SIZE, nullptr,
-              SERVER_TASK_PRIORITY, &serverTaskHandle);
+  xTaskCreatePinnedToCore(serverTask, "serverTask", SERVER_TASK_STACK_SIZE,
+                          nullptr, SERVER_TASK_PRIORITY, &serverTaskHandle,
+                          SERVER_TASK_CORE);
 
-  xTaskCreate(bleTask, "bleTask", BLE_TASK_STACK_SIZE, nullptr,
-              BLE_TASK_PRIORITY, &bleTaskHandle);
+  xTaskCreatePinnedToCore(bleTask, "bleTask", BLE_TASK_STACK_SIZE, nullptr,
+                          BLE_TASK_PRIORITY, &bleTaskHandle, BLE_TASK_CORE);
 
   Serial.println("[Setup] All tasks created");
 }

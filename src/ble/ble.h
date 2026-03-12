@@ -15,30 +15,30 @@ public:
 
 class BleStringCallbacks : public BLECharacteristicCallbacks {
 private:
-  domain::FlashMemory *_flashMemory;
+  domain::FlashWriter *_flashWriter;
   const char *_key;
 
-  domain::FlashMemory *getFlashMemory() const;
+  domain::FlashWriter *getFlashWriter() const;
 
   const char *getKey() const;
 
 public:
-  BleStringCallbacks(domain::FlashMemory *flashMemory, const char *key);
+  BleStringCallbacks(domain::FlashWriter *flashWriter, const char *key);
 
   void onWrite(BLECharacteristic *pCharacteristic) override;
 };
 
 class BleUint16Callbacks : public BLECharacteristicCallbacks {
 private:
-  domain::FlashMemory *_flashMemory;
+  domain::FlashWriter *_flashWriter;
   const char *_key;
 
-  domain::FlashMemory *getFlashMemory() const;
+  domain::FlashWriter *getFlashWriter() const;
 
   const char *getKey() const;
 
 public:
-  BleUint16Callbacks(domain::FlashMemory *flashMemory, const char *key);
+  BleUint16Callbacks(domain::FlashWriter *flashWriter, const char *key);
 
   void onWrite(BLECharacteristic *pCharacteristic) override;
 };
@@ -48,8 +48,8 @@ private:
   const char *_deviceName;
   const char *_serviceUuid;
 
-  domain::FlashMemory *_wifiFlash;
-  domain::FlashMemory *_mqttFlash;
+  domain::FlashWriter *_wifiWriter;
+  domain::FlashWriter *_mqttWriter;
 
   BLEServer *_server;
 
@@ -57,9 +57,9 @@ private:
 
   const char *getServiceUuid() const;
 
-  domain::FlashMemory *getWifiFlash() const;
+  domain::FlashWriter *getWifiWriter() const;
 
-  domain::FlashMemory *getMqttFlash() const;
+  domain::FlashWriter *getMqttWriter() const;
 
   BLEServer *getServer() const;
 
@@ -72,11 +72,7 @@ public:
 
   bool start();
 
-  void stop();
-
   bool started();
-
-  bool clientConnected();
 };
 
 } // namespace ble
