@@ -9,6 +9,7 @@
 #include "stats.h"
 
 #include "led.h"
+#include "pzem004t.h"
 
 #include "ble.h"
 
@@ -22,6 +23,7 @@ board::Clock *sysClock;
 board::Stats *stats;
 
 peripherals::Led *builtinLed;
+peripherals::Pzem004t *pzem;
 
 server::WifiService *wifi;
 server::MqttService *mqtt;
@@ -152,22 +154,40 @@ void commandNotSupported(const char *command) {
 }
 
 void controlTask(void *pvParameters) {
+  static uint32_t lastSampleTime = 0;
+
   for (;;) {
-    server::MqttMessage *message;
-    if (xQueueReceive(MqttSubscriptionsEventQueue, &message,
+    server::MqttMessage *subMessage;
+    if (xQueueReceive(MqttSubscriptionsEventQueue, &subMessage,
                       pdMS_TO_TICKS(MQTT_SUBSCRIPTIONS_QUEUE_DELAY_MS)) ==
         pdPASS) {
-      if (strcmp(message->getSubject(), MQTT_COMMAND_RESTART) == 0) {
+      if (strcmp(subMessage->getSubject(), MQTT_COMMAND_RESTART) == 0) {
         restartDevice();
 
-      } else if (strcmp(message->getSubject(), MQTT_COMMAND_PING) == 0) {
+      } else if (strcmp(subMessage->getSubject(), MQTT_COMMAND_PING) == 0) {
         ping();
 
       } else {
-        commandNotSupported(message->getSubject());
+        commandNotSupported(subMessage->getSubject());
       }
 
-      delete message;
+      delete subMessage;
+    }
+
+    if (millis() - lastSampleTime >= DEFAULT_SAMPLING_INTERVAL_MILLISECONDS) {
+      lastSampleTime = millis();
+      const String jsonEnergy = pzem->Read();
+
+      if (!jsonEnergy.isEmpty()) {
+        Serial.println(jsonEnergy);
+        server::MqttMessage *pubMessage = new server::MqttMessage(
+            MQTT_SUBJECT_ENERGY_STATS, jsonEnergy.c_str(),
+            MQTT_SUBJECT_ENERGY_STATS_RETAINED);
+        if (xQueueSend(MqttPublishingEventQueue, &pubMessage,
+                       pdMS_TO_TICKS(MQTT_PUBLISHING_EVENT_QUEUE_DELAY_MS)) !=
+            pdTRUE)
+          delete pubMessage;
+      }
     }
 
     vTaskDelay(pdMS_TO_TICKS(CONTROL_TASK_DELAY_MS));
@@ -190,6 +210,8 @@ void setup() {
 
   builtinLed = new peripherals::Led(BUILTIN_LED_PIN);
   builtinLed->LightUp(false);
+
+  pzem = new peripherals::Pzem004t(PZEM_UART_RX_PIN, PZEM_UART_TX_PIN);
 
   wifi = new server::WifiService();
 
