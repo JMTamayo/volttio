@@ -9,6 +9,7 @@
 #include "stats.h"
 
 #include "led.h"
+#include "pzem004t.h"
 
 #include "ble.h"
 
@@ -22,6 +23,7 @@ board::Clock *sysClock;
 board::Stats *stats;
 
 peripherals::Led *builtinLed;
+peripherals::Pzem004t *pzem;
 
 server::WifiService *wifi;
 server::MqttService *mqtt;
@@ -34,6 +36,7 @@ TaskHandle_t serverTaskHandle;
 
 TaskHandle_t deviceStatsTaskHandle;
 TaskHandle_t controlTaskHandle;
+TaskHandle_t energySamplingTaskHandle;
 
 QueueHandle_t MqttPublishingEventQueue;
 QueueHandle_t MqttSubscriptionsEventQueue;
@@ -75,10 +78,8 @@ void serverTask(void *pvParameters) {
 
       } else {
         Serial.println("[Server] Server available");
-
         mqtt->subscribe(MQTT_COMMAND_RESTART, 0);
         mqtt->subscribe(MQTT_COMMAND_PING, 0);
-
         serverStatus = server::ServerStatus::SERVER_STATUS_AVAILABLE;
       }
 
@@ -87,8 +88,8 @@ void serverTask(void *pvParameters) {
     case server::ServerStatus::SERVER_STATUS_AVAILABLE:
       if (!mqtt->connected()) {
         Serial.println("[Server] MQTT lost, reconnecting");
-        serverStatus = server::ServerStatus::SERVER_STATUS_CONNECT_TO_MQTT;
         builtinLed->LightUp(false);
+        serverStatus = server::ServerStatus::SERVER_STATUS_CONNECT_TO_MQTT;
 
       } else {
         builtinLed->LightUp(true);
@@ -154,6 +155,7 @@ void commandNotSupported(const char *command) {
 void controlTask(void *pvParameters) {
   for (;;) {
     server::MqttMessage *message;
+
     if (xQueueReceive(MqttSubscriptionsEventQueue, &message,
                       pdMS_TO_TICKS(MQTT_SUBSCRIPTIONS_QUEUE_DELAY_MS)) ==
         pdPASS) {
@@ -174,6 +176,31 @@ void controlTask(void *pvParameters) {
   }
 }
 
+void energySamplingTask(void *pvParameters) {
+  uint32_t lastSampleTime = 0;
+
+  for (;;) {
+    if (millis() - lastSampleTime >=
+        (uint32_t)DEFAULT_SAMPLING_INTERVAL_MILLISECONDS) {
+      lastSampleTime = millis();
+
+      const String jsonEnergy = pzem->Read();
+      Serial.println("[Energy Sampling] " + jsonEnergy);
+
+      server::MqttMessage *message =
+          new server::MqttMessage(MQTT_SUBJECT_ENERGY_STATS, jsonEnergy.c_str(),
+                                  MQTT_SUBJECT_ENERGY_STATS_RETAINED);
+
+      if (xQueueSend(MqttPublishingEventQueue, &message,
+                     pdMS_TO_TICKS(MQTT_PUBLISHING_EVENT_QUEUE_DELAY_MS)) !=
+          pdTRUE)
+        delete message;
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(ENERGY_SAMPLING_TASK_DELAY_MS));
+  }
+}
+
 void setup() {
   Serial.begin(SERIAL_BAUD_RATE);
   Serial.println("[Setup] Initializing volttio");
@@ -190,6 +217,8 @@ void setup() {
 
   builtinLed = new peripherals::Led(BUILTIN_LED_PIN);
   builtinLed->LightUp(false);
+
+  pzem = new peripherals::Pzem004t(PZEM_UART_RX_PIN, PZEM_UART_TX_PIN);
 
   wifi = new server::WifiService();
 
@@ -217,6 +246,11 @@ void setup() {
   xTaskCreatePinnedToCore(controlTask, "controlTask", CONTROL_TASK_STACK_SIZE,
                           nullptr, CONTROL_TASK_PRIORITY, &controlTaskHandle,
                           CONTROL_TASK_CORE);
+
+  xTaskCreatePinnedToCore(energySamplingTask, "energySamplingTask",
+                          ENERGY_SAMPLING_TASK_STACK_SIZE, nullptr,
+                          ENERGY_SAMPLING_TASK_PRIORITY,
+                          &energySamplingTaskHandle, ENERGY_SAMPLING_TASK_CORE);
 
   Serial.println("[Setup] All tasks created");
 }
