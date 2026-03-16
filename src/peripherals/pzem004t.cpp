@@ -14,31 +14,47 @@ Pzem004t::Pzem004t(const uint8_t rxPin, const uint8_t txPin)
 
 String Pzem004t::Read() {
   const float voltage = _pzem.voltage();
-  if (std::isnan(voltage))
-    return String();
-
   const float current = _pzem.current();
   const float power = _pzem.power();
   const float energyKwh = _pzem.energy();
   const float frequency = _pzem.frequency();
   const float powerFactor = _pzem.pf();
 
-  if (std::isnan(current) || std::isnan(power) || std::isnan(energyKwh) ||
-      std::isnan(frequency) || std::isnan(powerFactor))
-    return String();
-
-  const float powerFactorClamped =
-      (powerFactor > 1.0f) ? 1.0f : (powerFactor < 0.0f ? 0.0f : powerFactor);
-  const float activeEnergyWh = energyKwh * 1000.0f;
-
   JsonDocument doc;
   JsonObject data = doc["data"].to<JsonObject>();
-  data["voltage"] = roundf(voltage * 10.0f) / 10.0f;
-  data["current"] = roundf(current * 1000.0f) / 1000.0f;
-  data["power"] = roundf(power * 10.0f) / 10.0f;
-  data["active_energy"] = roundf(activeEnergyWh * 10.0f) / 10.0f;
-  data["frequency"] = roundf(frequency * 10.0f) / 10.0f;
-  data["power_factor"] = roundf(powerFactorClamped * 100.0f) / 100.0f;
+
+  if (std::isnan(voltage))
+    data["voltage"] = nullptr;
+  else
+    data["voltage"] = roundf(voltage * 10.0f) / 10.0f;
+
+  if (std::isnan(current))
+    data["current"] = nullptr;
+  else
+    data["current"] = roundf(current * 1000.0f) / 1000.0f;
+
+  if (std::isnan(power))
+    data["power"] = nullptr;
+  else
+    data["power"] = roundf(power * 10.0f) / 10.0f;
+
+  if (std::isnan(energyKwh))
+    data["active_energy"] = nullptr;
+  else
+    data["active_energy"] = roundf(energyKwh * 1000.0f * 10.0f) / 10.0f;
+
+  if (std::isnan(frequency))
+    data["frequency"] = nullptr;
+  else
+    data["frequency"] = roundf(frequency * 10.0f) / 10.0f;
+
+  if (std::isnan(powerFactor))
+    data["power_factor"] = nullptr;
+  else {
+    const float pf =
+        (powerFactor > 1.0f) ? 1.0f : (powerFactor < 0.0f ? 0.0f : powerFactor);
+    data["power_factor"] = roundf(pf * 100.0f) / 100.0f;
+  }
 
   String jsonString;
   serializeJson(doc, jsonString);
