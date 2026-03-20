@@ -112,13 +112,13 @@ void deviceStatsTask(void *pvParameters) {
   String datetime;
 
   for (;;) {
-    if (serverStatus == server::ServerStatus::SERVER_STATUS_AVAILABLE &&
-        sysClock->getCurrentTimeISO8601(&datetime)) {
+    if (sysClock->getCurrentTimeISO8601(&datetime)) {
       String jsonStats = stats->getStats(datetime);
 
       server::MqttMessage *message =
           new server::MqttMessage(MQTT_SUBJECT_DEVICE_STATS, jsonStats.c_str(),
                                   MQTT_SUBJECT_DEVICE_STATS_RETAINED);
+
       if (xQueueSend(MqttPublishingEventQueue, &message,
                      pdMS_TO_TICKS(MQTT_PUBLISHING_EVENT_QUEUE_DELAY_MS)) !=
           pdTRUE) {
@@ -177,14 +177,17 @@ void controlTask(void *pvParameters) {
 }
 
 void energySamplingTask(void *pvParameters) {
-  uint32_t lastSampleTime = 0;
+  String datetime;
+  uint32_t lastSampleTime = millis() - DEFAULT_SAMPLING_INTERVAL_MILLISECONDS;
 
   for (;;) {
-    if (millis() - lastSampleTime >=
-        (uint32_t)DEFAULT_SAMPLING_INTERVAL_MILLISECONDS) {
+    bool samplingTimeReached =
+        millis() - lastSampleTime >= DEFAULT_SAMPLING_INTERVAL_MILLISECONDS;
+
+    if (samplingTimeReached && sysClock->getCurrentTimeISO8601(&datetime)) {
       lastSampleTime = millis();
 
-      const String jsonEnergy = pzem->Read();
+      const String jsonEnergy = pzem->Read(datetime);
       Serial.println("[Energy Sampling] " + jsonEnergy);
 
       server::MqttMessage *message =
@@ -195,9 +198,12 @@ void energySamplingTask(void *pvParameters) {
                      pdMS_TO_TICKS(MQTT_PUBLISHING_EVENT_QUEUE_DELAY_MS)) !=
           pdTRUE)
         delete message;
-    }
 
-    vTaskDelay(pdMS_TO_TICKS(ENERGY_SAMPLING_TASK_DELAY_MS));
+      vTaskDelay(pdMS_TO_TICKS(ENERGY_SAMPLING_TASK_DELAY_MS));
+
+    } else {
+      vTaskDelay(pdMS_TO_TICKS(ENERGY_SAMPLING_TASK_RETRY_DELAY_MS));
+    }
   }
 }
 

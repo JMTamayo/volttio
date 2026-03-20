@@ -12,7 +12,7 @@ const uint8_t Pzem004t::getTxPin() const { return _txPin; }
 Pzem004t::Pzem004t(const uint8_t rxPin, const uint8_t txPin)
     : _rxPin(rxPin), _txPin(txPin), _pzem(Serial2, rxPin, txPin) {}
 
-String Pzem004t::Read() {
+String Pzem004t::Read(const String &currentTime) {
   const float voltage = _pzem.voltage();
   const float current = _pzem.current();
   const float power = _pzem.power();
@@ -21,39 +21,40 @@ String Pzem004t::Read() {
   const float powerFactor = _pzem.pf();
 
   JsonDocument doc;
+
+  doc["local_timestamptz"] = currentTime;
+
   JsonObject data = doc["data"].to<JsonObject>();
 
   if (std::isnan(voltage))
     data["voltage"] = nullptr;
   else
-    data["voltage"] = roundf(voltage * 10.0f) / 10.0f;
+    data["voltage"] = voltage;
 
   if (std::isnan(current))
     data["current"] = nullptr;
   else
-    data["current"] = roundf(current * 1000.0f) / 1000.0f;
+    data["current"] = current;
 
   if (std::isnan(power))
-    data["power"] = nullptr;
+    data["active_power"] = nullptr;
   else
-    data["power"] = roundf(power * 10.0f) / 10.0f;
+    data["active_power"] = power;
 
   if (std::isnan(energyKwh))
     data["active_energy"] = nullptr;
   else
-    data["active_energy"] = roundf(energyKwh * 1000.0f * 10.0f) / 10.0f;
+    data["active_energy"] = energyKwh;
 
   if (std::isnan(frequency))
     data["frequency"] = nullptr;
   else
-    data["frequency"] = roundf(frequency * 10.0f) / 10.0f;
+    data["frequency"] = frequency;
 
   if (std::isnan(powerFactor))
     data["power_factor"] = nullptr;
   else {
-    const float pf =
-        (powerFactor > 1.0f) ? 1.0f : (powerFactor < 0.0f ? 0.0f : powerFactor);
-    data["power_factor"] = roundf(pf * 100.0f) / 100.0f;
+    data["power_factor"] = powerFactor;
   }
 
   String jsonString;
