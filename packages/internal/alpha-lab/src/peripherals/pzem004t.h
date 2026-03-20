@@ -20,7 +20,7 @@ public:
 
   ~Pzem004t() = default;
 
-  String Read();
+  String Read(const String &currentTime);
 };
 
 } // namespace peripherals
