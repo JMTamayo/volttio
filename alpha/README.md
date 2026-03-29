@@ -8,9 +8,10 @@ You **pair once over Bluetooth** to give the board your Wi‑Fi and broker detai
 
 ## Prototype assembly
 
-![Prototype assembly — ESP32 dev kit, switching PSU, AC box, interconnect PCB, OLED module](./assets/prototype/prototype_assembly.png)
+<!-- IDE Markdown preview resolves image paths from the repo root, not from alpha/; raw URL keeps the photo visible in Cursor and on GitHub. -->
+![Prototype assembly (bench setup)](https://raw.githubusercontent.com/JMTamayo/volttio/deabafa/alpha/assets/prototype/prototype_assembly.png)
 
-*Bench reference setup: ESP32 on breakout, 5V PSU, AC outlet box, sensor PCB, and OLED (on packaging).*
+*Bench reference setup: ESP32 on breakout, 5V PSU, AC outlet box, sensor PCB, and OLED (on packaging). Local copy of the same file: [`assets/prototype/prototype_assembly.png`](assets/prototype/prototype_assembly.png).*
 
 ---
 
