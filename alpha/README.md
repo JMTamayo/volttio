@@ -6,13 +6,6 @@ You **pair once over Bluetooth** to give the board your Wi‑Fi and broker detai
 
 **For engineers:** implementation details (stack, tasks, pins, build steps) are in **Architecture** and `platformio.ini`. Typical dev flow: open in PlatformIO, build/flash the `esp32dev` environment, serial at `115200` baud.
 
-## Prototype assembly
-
-<!-- IDE Markdown preview resolves image paths from the repo root, not from alpha/; raw URL keeps the photo visible in Cursor and on GitHub. -->
-![Prototype assembly (bench setup)](https://raw.githubusercontent.com/JMTamayo/volttio/deabafa/alpha/assets/prototype/prototype_assembly.png)
-
-*Bench reference setup: ESP32 on breakout, 5V PSU, AC outlet box, sensor PCB, and OLED (on packaging). Local copy of the same file: [`assets/prototype/prototype_assembly.png`](assets/prototype/prototype_assembly.png).*
-
 ---
 
 ## Status
@@ -27,7 +20,7 @@ This repository is **internal to Volttio** and serves as a **firmware sketchpad*
 
 ## Current Hardware Focus
 
-The hardware described here is the **reference bench setup** used while developing `alpha`. It is **not** an exhaustive electrical design or safety guide—follow your local rules for mains and isolation when using the PZEM on real installations. A photo of the current bench assembly is at the top of this README (**Prototype assembly**).
+The hardware described here is the **reference bench setup** used while developing `alpha`. It is **not** an exhaustive electrical design or safety guide—follow your local rules for mains and isolation when using the PZEM on real installations.
 
 ### Microcontroller
 
