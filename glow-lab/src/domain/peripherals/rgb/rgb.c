@@ -1,4 +1,4 @@
-#include "domain/peripherals/rgb.h"
+#include "domain/peripherals/rgb/rgb.h"
 #include "config.h"
 
 #include <esp_log.h>
