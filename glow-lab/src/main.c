@@ -3,7 +3,7 @@
 #include <esp_err.h>
 #include <esp_log.h>
 
-#include "domain/peripherals/rgb.h"
+#include "domain/peripherals/rgb/rgb.h"
 
 static const char *TAG = "main";
 
