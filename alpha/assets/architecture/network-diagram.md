@@ -1,6 +1,6 @@
 # Network Diagram
 
-Network-related behavior in `alpha-lab` is split **by actor** so each diagram stays small. Together they cover the same ground as the old single “connectivity” view.
+Network-related behavior in `alpha` is split **by actor** so each diagram stays small. Together they cover the same ground as the old single “connectivity” view.
 
 | Section | Actor / concern |
 |---------|-----------------|

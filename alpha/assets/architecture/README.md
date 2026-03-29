@@ -1,6 +1,6 @@
 # Architecture diagrams
 
-This folder holds Mermaid diagrams for `alpha-lab`. The **folder tree and module guide** live in the [main package README](../../README.md#folder-structure).
+This folder holds Mermaid diagrams for `alpha`. The **folder tree and module guide** live in the [main package README](../../README.md#folder-structure).
 
 | Document | Contents |
 |----------|----------|
