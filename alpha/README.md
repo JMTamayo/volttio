@@ -22,6 +22,12 @@ This repository is **internal to Volttio** and serves as a **firmware sketchpad*
 
 The hardware described here is the **reference bench setup** used while developing `alpha`. It is **not** an exhaustive electrical design or safety guide—follow your local rules for mains and isolation when using the PZEM on real installations.
 
+### Prototype assembly
+
+Bench photo of the current prototype (ESP32 on a breakout, switching PSU, AC box with outlet and switch, interconnect PCB, and OLED module on its packaging):
+
+![Prototype assembly](assets/prototype/prototype_assembly.png)
+
 ### Microcontroller
 
 - **Board:** DEVKIT-ESP32S-30PIN-CH340 (USB‑serial via CH340).
