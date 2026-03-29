@@ -1,6 +1,6 @@
-# alpha-lab
+# alpha
 
-`alpha-lab` is Volttio’s **internal lab firmware**—the first place we try out how a device should feel in the field: **simple onboarding**, **reliable connectivity**, and **useful data** (what the hardware is doing and how much energy is flowing) sent to your own cloud stack.
+`alpha` is Volttio’s **internal lab firmware**—the first place we try out how a device should feel in the field: **simple onboarding**, **reliable connectivity**, and **useful data** (what the hardware is doing and how much energy is flowing) sent to your own cloud stack.
 
 You **pair once over Bluetooth** to give the board your Wi‑Fi and broker details; after that it stays online, streams **device health** and **energy metrics** over MQTT, and accepts basic remote commands (for example restart or “are you there?”). It is meant to **de-risk** product decisions before we lock a final SKU—behavior and BOM may still move.
 
@@ -20,7 +20,7 @@ This repository is **internal to Volttio** and serves as a **firmware sketchpad*
 
 ## Current Hardware Focus
 
-The hardware described here is the **reference bench setup** used while developing `alpha-lab`. It is **not** an exhaustive electrical design or safety guide—follow your local rules for mains and isolation when using the PZEM on real installations.
+The hardware described here is the **reference bench setup** used while developing `alpha`. It is **not** an exhaustive electrical design or safety guide—follow your local rules for mains and isolation when using the PZEM on real installations.
 
 ### Microcontroller
 
@@ -51,7 +51,7 @@ This project follows a modular firmware structure around `src/main.cpp`, where r
 ### Folder structure
 
 ```text
-alpha-lab/
+alpha/
 ├── README.md
 ├── platformio.ini
 ├── include/

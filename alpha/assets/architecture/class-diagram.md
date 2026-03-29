@@ -1,6 +1,6 @@
 # Class Diagram
 
-Class and interface relationships in `alpha-lab`, **split by source folder** (`src/domain`, `src/server`, etc.) so each diagram stays easy to read. Types from other modules appear as stubs or notes where a relationship must be shown.
+Class and interface relationships in `alpha`, **split by source folder** (`src/domain`, `src/server`, etc.) so each diagram stays easy to read. Types from other modules appear as stubs or notes where a relationship must be shown.
 
 **Rendering note:** Mermaid parses `<<`…`>>` as stereotypes. Avoid spaces, `+`, `/`, or long text inside them (that can split `<<` / `>>` in the UI). Details go in `note for ClassName "..."` lines instead.
 
