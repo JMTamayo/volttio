@@ -1,0 +1,3 @@
+# This board uses 8 MB flash. Keep it as a project-level user-set default
+# instead of relying on the Kconfig built-in default (2 MB).
+CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y
