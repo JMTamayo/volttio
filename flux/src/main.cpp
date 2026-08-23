@@ -1,18 +1,30 @@
 #include <Arduino.h>
 
-// put function declarations here:
-int myFunction(int, int);
+#include "config.hpp"
+#include "logging/logging.hpp"
+#include "peripherals/power_switch/power_switch.hpp"
+#include "peripherals/power_switch/tag.hpp"
 
-void setup() {
-  // put your setup code here, to run once:
-  int result = myFunction(2, 3);
+static power_switch::PowerSwitch
+    powerSwitch(config::power_switch::RELAY_PIN,
+                config::power_switch::RELAY_ACTIVE_HIGH
+                    ? power_switch::ActiveLevel::High
+                    : power_switch::ActiveLevel::Low);
+
+static void logStatus() {
+  power_switch::PowerSwitchReading reading;
+  powerSwitch.read(reading);
+  LOGI(power_switch::TAG, "%s", reading.serialize().c_str());
 }
+
+void setup() {}
 
 void loop() {
-  // put your main code here, to run repeatedly:
-}
+  powerSwitch.energize();
+  logStatus();
+  delay(30000);
 
-// put function definitions here:
-int myFunction(int x, int y) {
-  return x + y;
+  powerSwitch.deenergize();
+  logStatus();
+  delay(30000);
 }
